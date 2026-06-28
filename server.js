@@ -74,11 +74,31 @@ async function processText(text, options, apiKey) {
   return results.join('\n\n');
 }
 
-function cleanText(text) {
+function fixTurkishText(text) {
   return text
-    .replace(/[^\x20-\x7E\u00C0-\u024F\u0100-\u017E\u011E\u011F\u0130\u0131\u015E\u015F\u00D6\u00F6\u00DC\u00FC\u00C7\u00E7\u0040-\u007A\n\r\t]/g, ' ')
+    .replace(/\uFFFD/g, '')
+    .replace(/â/g, 'a')
+    .replace(/î/g, 'i')
+    .replace(/û/g, 'u')
+    .replace(/Â/g, 'A')
+    .replace(/Î/g, 'I')
+    .replace(/Û/g, 'U')
+    .replace(/\u0131/g, 'ı')
+    .replace(/\u011F/g, 'ğ')
+    .replace(/\u011E/g, 'Ğ')
+    .replace(/\u015F/g, 'ş')
+    .replace(/\u015E/g, 'Ş')
+    .replace(/\u00E7/g, 'ç')
+    .replace(/\u00C7/g, 'Ç')
+    .replace(/\u00F6/g, 'ö')
+    .replace(/\u00D6/g, 'Ö')
+    .replace(/\u00FC/g, 'ü')
+    .replace(/\u00DC/g, 'Ü')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/\s+/g, ' ')
-    .replace(/\n\s*\n/g, '\n\n')
+    .replace(/ \n/g, '\n')
+    .replace(/\n /g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -114,11 +134,14 @@ app.post('/api/convert-file', upload.single('file'), async (req, res) => {
     const mime = req.file.mimetype;
 
     if (mime === 'application/pdf') {
-      const parsed = await pdfParse(req.file.buffer);
+      const parsed = await pdfParse(req.file.buffer, {
+        normalizeWhitespace: true
+      });
       text = parsed.text || '';
-      text = cleanText(text);
+      text = fixTurkishText(text);
     } else {
       text = req.file.buffer.toString('utf-8');
+      text = fixTurkishText(text);
     }
 
     if (!text || text.trim().length === 0)
