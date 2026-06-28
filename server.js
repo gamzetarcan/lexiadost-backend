@@ -65,10 +65,8 @@ ${chunk}`;
 
 async function processText(text, options, apiKey) {
   const chunks = splitIntoChunks(text, 3000);
-  console.log(`Metin ${chunks.length} parçaya bölündü.`);
   const results = [];
   for (let i = 0; i < chunks.length; i++) {
-    console.log(`Parça ${i + 1}/${chunks.length} işleniyor...`);
     const result = await convertChunk(chunks[i], options, apiKey);
     results.push(result);
     if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 500));
@@ -76,7 +74,14 @@ async function processText(text, options, apiKey) {
   return results.join('\n\n');
 }
 
-// JSON (metin) endpoint
+function cleanText(text) {
+  return text
+    .replace(/[^\x20-\x7E\u00C0-\u024F\u0100-\u017E\u011E\u011F\u0130\u0131\u015E\u015F\u00D6\u00F6\u00DC\u00FC\u00C7\u00E7\u0040-\u007A\n\r\t]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\n\s*\n/g, '\n\n')
+    .trim();
+}
+
 app.post('/api/convert', async (req, res) => {
   const { text, options } = req.body || {};
   if (!text || text.trim().length === 0)
@@ -94,7 +99,6 @@ app.post('/api/convert', async (req, res) => {
   }
 });
 
-// Dosya (PDF/TXT) endpoint
 app.post('/api/convert-file', upload.single('file'), async (req, res) => {
   if (!req.file)
     return res.status(400).json({ error: 'Dosya yüklenmedi.' });
@@ -111,7 +115,8 @@ app.post('/api/convert-file', upload.single('file'), async (req, res) => {
 
     if (mime === 'application/pdf') {
       const parsed = await pdfParse(req.file.buffer);
-      text = parsed.text;
+      text = parsed.text || '';
+      text = cleanText(text);
     } else {
       text = req.file.buffer.toString('utf-8');
     }
@@ -119,7 +124,6 @@ app.post('/api/convert-file', upload.single('file'), async (req, res) => {
     if (!text || text.trim().length === 0)
       return res.status(400).json({ error: 'Dosyadan metin okunamadı.' });
 
-    console.log(`Dosya alındı: ${req.file.originalname}, ${text.length} karakter`);
     const result = await processText(text, options, apiKey);
     return res.status(200).json({ result });
   } catch (err) {
